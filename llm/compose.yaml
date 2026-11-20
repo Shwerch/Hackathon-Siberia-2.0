@@ -1,0 +1,41 @@
+services:
+  llama-server:
+    container_name: gemma4-llama-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8080:8080"
+    devices:
+      - "/dev/kfd:/dev/kfd"
+      - "/dev/dri:/dev/dri"
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    ipc: host
+    shm_size: "16gb"
+    volumes:
+      - ./models:/models
+    environment:
+      MODEL_DIR: /models
+      MODEL_REPO: bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF-RCO-4.2bpw
+      MODEL_FILE: ThinkingCap-Qwen3.8-27B-RCO-4.2bpw.gguf
+      MODEL_PATH: /models/ThinkingCap-Qwen3.8-27B-RCO-4.2bpw.gguf
+      MODEL_SHA256: bfb7712f21ad131d64321c4f9ce42417be0fe7a52bd2ff69d263012ddf631654
+      CTX_SIZE: "32768"
+      N_GPU_LAYERS: "999"
+      CACHE_TYPE_K: q8_0
+      CACHE_TYPE_V: q8_0
+      TEMPERATURE: "1.0"
+      TOP_P: "0.95"
+      TOP_K: "20"
+      BATCH_SIZE: "512"
+      UBATCH_SIZE: "128"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10m
