@@ -380,29 +380,14 @@ export const DrawioDiagramViewer: React.FC<DrawioDiagramViewerProps> = ({ xml })
           />
 
           {parsed.vertices.map((v) => {
-            const rawFill =
+            const fill =
               v.style.fillColor && v.style.fillColor !== 'none'
                 ? v.style.fillColor
                 : 'transparent';
-            const rawStroke =
+            const stroke =
               v.style.strokeColor && v.style.strokeColor !== 'none'
                 ? v.style.strokeColor
                 : 'none';
-
-            const normFill = rawFill.replace(/\s+/g, '').toUpperCase();
-            const isSynonyxBox =
-              v.style.synonyxBox === '1' ||
-              normFill === '#FFFFFF' ||
-              normFill === '#FFF' ||
-              normFill === 'WHITE';
-            const isSynonyxInnerTile = normFill === '#F2F4F6';
-
-            const fill = isSynonyxBox
-              ? '#253038'
-              : isSynonyxInnerTile
-                ? '#354552'
-                : rawFill;
-            const stroke = isSynonyxInnerTile ? '#5B707F' : rawStroke;
             const strokeWidth = parseFloat(v.style.strokeWidth || '1.5');
             const isDashed = v.style.dashed === '1';
             const isHex = v.style.shape === 'hexagon';
@@ -410,9 +395,7 @@ export const DrawioDiagramViewer: React.FC<DrawioDiagramViewerProps> = ({ xml })
             const isTopLabel = v.style.verticalLabelPosition === 'top';
 
             const fontSize = parseFloat(v.style.fontSize || '12');
-            const fontColor = isSynonyxInnerTile
-              ? '#FFFFFF'
-              : v.style.fontColor || '#FFFFFF';
+            const fontColor = v.style.fontColor || '#FFFFFF';
             const align = v.style.align || 'center';
             const vAlign = v.style.verticalAlign || 'middle';
             const padLeft = v.style.spacingLeft ? parseFloat(v.style.spacingLeft) : 2;

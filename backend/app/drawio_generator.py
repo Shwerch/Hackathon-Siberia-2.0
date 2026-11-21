@@ -118,7 +118,7 @@ def generate_drawio_xml(result: ProjectResult, title: str = "СХЕМА ОБМЕ
 
     cells.append(
         f'<mxCell id="{next_id()}" value="" '
-        f'style="rounded=1;arcSize=10;fillColor=#FFFFFF;strokeColor=#E06733;strokeWidth=2;html=1;synonyxBox=1;" '
+        f'style="rounded=1;arcSize=10;fillColor=#FFFFFF;strokeColor=#E06733;strokeWidth=2;html=1;" '
         f'vertex="1" parent="1"><mxGeometry x="{syn_x}" y="{syn_y}" width="{syn_w}" height="{syn_h}" as="geometry"/></mxCell>'
     )
 
@@ -145,7 +145,6 @@ def generate_drawio_xml(result: ProjectResult, title: str = "СХЕМА ОБМЕ
         f'vertex="1" parent="1"><mxGeometry x="{node_b_x}" y="{node_y}" width="{node_w}" height="{node_h}" as="geometry"/></mxCell>'
     )
 
-    # USB-носитель опущен на 96px ниже прямоугольника СИНОНИКС для свободного размещения подписи
     usb_cell_id: Optional[str] = None
     usb_x = node_a_x - 23
     usb_y = syn_y + syn_h + 96
