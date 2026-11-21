@@ -108,7 +108,24 @@ export const DiagramViewer: React.FC<Props> = ({ drawioXml }) => {
           viewBox={`0 0 ${parsed.pageW} ${parsed.pageH}`}
           className="rounded-lg shadow-inner"
         >
+          <defs>
+            {["#E06733", "#35C4AF", "#FFAB4D", "#B9C5CD", "#6FA8DC"].map((col) => (
+              <marker
+                key={col}
+                id={`arr-${col.slice(1)}`}
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1 L 10 5 L 0 9 z" fill={col} />
+              </marker>
+            ))}
+          </defs>
           <rect width={parsed.pageW} height={parsed.pageH} fill="#303E48" />
+
           {parsed.cells
             .filter((c) => c.vertex)
             .map((c) => {
@@ -117,27 +134,37 @@ export const DiagramViewer: React.FC<Props> = ({ drawioXml }) => {
               const dashed = c.style.includes("dashed=1");
               const fontColor = getStyleProp(c.style, "fontColor", "#FFFFFF");
               const isTextOnly = c.style.startsWith("text;");
+              const isImage = c.style.startsWith("shape=image");
+              const imgUri = isImage ? getStyleProp(c.style, "image", "") : "";
               const label = stripHtml(c.value);
 
               return (
                 <g key={c.id}>
-                  {!isTextOnly && (
-                    <rect
-                      x={c.x}
-                      y={c.y}
-                      width={c.w}
-                      height={c.h}
-                      rx={8}
-                      fill={fill === "none" ? "transparent" : fill}
-                      stroke={stroke === "none" ? "transparent" : stroke}
-                      strokeWidth={2}
-                      strokeDasharray={dashed ? "8 6" : undefined}
-                    />
+                  {isImage && imgUri ? (
+                    <image href={imgUri} x={c.x} y={c.y} width={c.w} height={c.h} />
+                  ) : (
+                    !isTextOnly && (
+                      <rect
+                        x={c.x}
+                        y={c.y}
+                        width={c.w}
+                        height={c.h}
+                        rx={8}
+                        fill={fill === "none" ? "transparent" : fill}
+                        stroke={stroke === "none" ? "transparent" : stroke}
+                        strokeWidth={2}
+                        strokeDasharray={dashed ? "8 6" : undefined}
+                      />
+                    )
                   )}
                   {label && (
                     <text
                       x={c.x + (c.style.includes("align=center") ? c.w / 2 : 12)}
-                      y={c.y + (c.style.includes("verticalAlign=top") ? 20 : c.h / 2 + 4)}
+                      y={
+                        isImage
+                          ? c.y - 8
+                          : c.y + (c.style.includes("verticalAlign=top") ? 20 : c.h / 2 + 4)
+                      }
                       fill={fontColor}
                       fontSize={Number(getStyleProp(c.style, "fontSize", "12"))}
                       textAnchor={c.style.includes("align=center") ? "middle" : "start"}
@@ -157,12 +184,16 @@ export const DiagramViewer: React.FC<Props> = ({ drawioXml }) => {
               const tgt = e.target ? parsed.byId[e.target] : undefined;
               if (!src || !tgt) return null;
               const stroke = getStyleProp(e.style, "strokeColor", "#E06733");
-              const x1 = src.x + src.w / 2;
-              const y1 = src.y + src.h / 2;
-              const x2 = tgt.x + tgt.w / 2;
-              const y2 = tgt.y + tgt.h / 2;
+              const twoWay = e.style.includes("startArrow=block");
+              const markerId = `arr-${stroke.slice(1)}`;
+
+              const x1 = src.x < tgt.x ? src.x + src.w : src.x;
+              const y1 = src.y + src.h * Number(getStyleProp(e.style, "exitY", "0.5"));
+              const x2 = src.x < tgt.x ? tgt.x : tgt.x + tgt.w;
+              const y2 = tgt.y + tgt.h * Number(getStyleProp(e.style, "entryY", "0.5"));
               const midX = (x1 + x2) / 2;
               const midY = (y1 + y2) / 2;
+
               return (
                 <g key={e.id}>
                   <path
@@ -170,6 +201,8 @@ export const DiagramViewer: React.FC<Props> = ({ drawioXml }) => {
                     fill="none"
                     stroke={stroke}
                     strokeWidth={2.2}
+                    markerEnd={`url(#${markerId})`}
+                    markerStart={twoWay ? `url(#${markerId})` : undefined}
                   />
                   {e.value && (
                     <g>

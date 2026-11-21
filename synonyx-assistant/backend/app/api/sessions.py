@@ -24,7 +24,6 @@ from app.storage.db import SessionStorage
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
-# Инициализируются в main.py
 storage: SessionStorage
 llm_client: TrackedLLMClient
 kb_retriever: KBRetriever
@@ -72,16 +71,21 @@ async def process_turn(session_id: str, req: TurnRequest) -> SessionState:
     state.turn_counter += 1
     turn_id = state.turn_counter
 
-    # Применяем ответы из кнопок уточнений (включая «другое» -> requests_for_vendor)
     user_text_parts = [req.message.strip()]
     for qid, ans in req.clarification_answers.items():
         if ans.get("other_text"):
             other_val = str(ans["other_text"]).strip()
             if other_val and other_val not in state.requests_for_vendor:
                 state.requests_for_vendor.append(other_val)
+            if qid not in state.dismissed_questions:
+                state.dismissed_questions.append(qid)
             user_text_parts.append(f"{qid}: другое ({other_val})")
         elif ans.get("choice"):
-            user_text_parts.append(f"{qid}: {ans['choice']}")
+            choice_val = str(ans["choice"]).strip()
+            if choice_val.lower() == "не знаю" and qid not in state.dismissed_questions:
+                state.dismissed_questions.append(qid)
+            user_text_parts.append(f"{qid}: {choice_val}")
+
     combined_msg = "\n".join(p for p in user_text_parts if p)
 
     state.messages.append(ChatMessage(role="user", content=combined_msg, turn_id=turn_id))
@@ -91,13 +95,16 @@ async def process_turn(session_id: str, req: TurnRequest) -> SessionState:
     _record_usage(state, extract_log)
 
     intent = delta.get("intent", "project_update")
+    if intent == "unclear" and delta.get("upsert_flows"):
+        intent = "project_update"
+
     warnings: list[str] = []
 
     if intent == "project_update":
         if delta.get("networks"):
             state.networks = [NetworkItem(**n) for n in delta["networks"][:2]]
-        if delta.get("both_initially_open"):
-            state.both_initially_open = True
+        if "both_initially_open" in delta:
+            state.both_initially_open = bool(delta["both_initially_open"])
         if delta.get("firewall_side") in ("open", "both"):
             state.firewall_side = delta["firewall_side"]
 
@@ -116,7 +123,6 @@ async def process_turn(session_id: str, req: TurnRequest) -> SessionState:
         for rk in delta.get("remove_flow_keys", []):
             existing.pop(rk, None)
 
-        # Переименование и удаление устройств
         for ren in delta.get("rename_devices", []):
             for f in existing.values():
                 f.source_devices = [ren["new_name"] if d == ren["old_name"] else d for d in f.source_devices]
@@ -136,17 +142,17 @@ async def process_turn(session_id: str, req: TurnRequest) -> SessionState:
 
         warnings = validate_and_normalize_state(state)
         if state.status == "unsupported":
-            # Сохраняем последнее корректное состояние схемы при недопустимом запросе
             state.rules = backup_state.rules
             state.rules_count = backup_state.rules_count
             state.drawio_xml = backup_state.drawio_xml
         else:
             recalculate_rules(state)
-            state.pending_questions = build_clarifications(state)
-            state.unknowns = [q.text for q in state.pending_questions]
+            new_questions, all_unknowns = build_clarifications(state)
+            state.pending_questions = new_questions
+            state.unknowns = all_unknowns
             if not state.flows and not state.networks:
                 state.status = "needs_clarification"
-            elif state.pending_questions:
+            elif state.unknowns:
                 state.status = "preliminary"
             else:
                 state.status = "completed"
@@ -155,7 +161,6 @@ async def process_turn(session_id: str, req: TurnRequest) -> SessionState:
     elif intent in ("invalid_edit", "ambiguous_edit", "out_of_scope_networks"):
         warnings.append(delta.get("clarification_needed_reason") or "Запрос требует уточнения или выходит за рамки кейса.")
 
-    # Поиск релевантных фрагментов БЗ
     kb_chunks = kb_retriever.search(combined_msg, top_k=3)
     sources = [SourceRef(file=c.file, section=c.section) for c in kb_chunks]
     state.sources = sources
@@ -168,6 +173,7 @@ async def process_turn(session_id: str, req: TurnRequest) -> SessionState:
             "rules_count": state.rules_count,
             "rules": [r.model_dump(by_alias=True) for r in state.rules],
             "file_users_count": state.file_users_count,
+            "unknowns": state.unknowns,
             "requests_for_vendor": state.requests_for_vendor,
             "warnings": warnings,
             "pending_questions": [q.text for q in state.pending_questions],
@@ -191,11 +197,11 @@ async def process_turn(session_id: str, req: TurnRequest) -> SessionState:
             },
         ],
         temperature=0.2,
-        max_tokens=900,
+        max_tokens=2000,
     )
     _record_usage(state, reply_log)
 
-    if reply_log.status != "ok":
+    if reply_log.status != "ok" or not reply_text.strip():
         reply_text = "Произошла ошибка при обращении к языковой модели. Повторите запрос — введённые данные сохранены."
         turn_status = "error"
     else:

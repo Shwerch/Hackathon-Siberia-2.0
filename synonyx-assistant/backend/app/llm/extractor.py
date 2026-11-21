@@ -1,9 +1,12 @@
 import json
+import logging
 from typing import Any
 from app.llm.client import TrackedLLMClient
 from app.llm.prompts import EXTRACTOR_SYSTEM_PROMPT
 from app.models.state import SessionState
 from app.models.usage import CallLogEntry
+
+logger = logging.getLogger("uvicorn.error")
 
 
 async def extract_intent_and_delta(
@@ -38,7 +41,7 @@ async def extract_intent_and_delta(
         purpose="extract_intent",
         messages=messages,
         temperature=0.0,
-        max_tokens=1200,
+        max_tokens=2400,
         json_mode=True,
     )
     if log_entry.status != "ok":
@@ -46,6 +49,7 @@ async def extract_intent_and_delta(
 
     try:
         parsed = llm.parse_json_safe(raw)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Extractor JSON parse failed (%s). Raw[:300]=%r", exc, raw[:300])
         parsed = {"intent": "unclear", "raw": raw}
     return parsed, log_entry

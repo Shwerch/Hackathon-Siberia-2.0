@@ -3,6 +3,7 @@ import { RotateCcw, Send } from "lucide-react";
 import { SessionState } from "../api/client";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { ClarifyCard } from "./ClarifyCard";
+import { MarkdownView } from "./MarkdownView";
 
 interface Props {
   session: SessionState | null;
@@ -33,13 +34,13 @@ export const ChatPanel: React.FC<Props> = ({ session, loading, error, onSend, on
         {session?.messages.map((m, idx) => (
           <div key={idx} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
             <div
-              className={`max-w-[90%] rounded-xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed ${
+              className={`max-w-[92%] rounded-xl px-4 py-3 text-sm ${
                 m.role === "user"
-                  ? "bg-teal-700/30 border border-teal-600/40 text-slate-100"
+                  ? "bg-teal-700/30 border border-teal-600/40 text-slate-100 whitespace-pre-wrap"
                   : "bg-slate-900 border border-slate-800 text-slate-200"
               }`}
             >
-              {m.content}
+              {m.role === "user" ? m.content : <MarkdownView content={m.content} />}
               {m.sources && m.sources.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-slate-800 flex flex-wrap gap-1.5">
                   {m.sources.map((s, si) => (

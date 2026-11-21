@@ -1,20 +1,32 @@
 import json
+import logging
+import re
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional
-from openai import AsyncOpenAI
+from openai import APITimeoutError, AsyncOpenAI, BadRequestError
 from app.config import settings
 from app.models.usage import CallLogEntry
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class TrackedLLMClient:
     def __init__(self) -> None:
         self.client = AsyncOpenAI(
-            api_key=settings.openai_api_key,
+            api_key=settings.openai_api_key or "no-key",
             base_url=settings.openai_base_url,
             timeout=settings.llm_timeout_seconds,
+            max_retries=0,
         )
+
+    @staticmethod
+    def strip_thinking(text: str) -> str:
+        # Убираем как закрытые, так и оборванные блоки <think>
+        cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+        cleaned = re.sub(r"<think>.*$", "", cleaned, flags=re.DOTALL)
+        return cleaned.strip()
 
     async def chat_completion(
         self,
@@ -24,7 +36,7 @@ class TrackedLLMClient:
         purpose: Literal["extract_intent", "generate_reply"],
         messages: list[dict[str, str]],
         temperature: float = 0.1,
-        max_tokens: int = 1200,
+        max_tokens: int = 2400,
         json_mode: bool = False,
     ) -> tuple[str, CallLogEntry]:
         call_id = str(uuid.uuid4())
@@ -52,9 +64,24 @@ class TrackedLLMClient:
         actual_cost: Optional[float] = None
 
         try:
-            resp = await self.client.chat.completions.create(**kwargs)
+            try:
+                resp = await self.client.chat.completions.create(**kwargs)
+            except BadRequestError:
+                if "response_format" in kwargs:
+                    kwargs.pop("response_format")
+                    resp = await self.client.chat.completions.create(**kwargs)
+                else:
+                    raise
+
             provider_response_id = getattr(resp, "id", None)
-            content = resp.choices[0].message.content or ""
+            raw_content = resp.choices[0].message.content or ""
+            content = self.strip_thinking(raw_content)
+
+            if not content:
+                status = "error"
+                error_msg = "Модель вернула пустой content (возможно, весь лимит ушёл в reasoning/think)"
+                logger.warning("LLM empty content [%s], finish_reason=%s", purpose, resp.choices[0].finish_reason)
+
             usage = getattr(resp, "usage", None)
             if usage is not None and getattr(usage, "prompt_tokens", None) is not None:
                 usage_status = "confirmed"
@@ -69,12 +96,14 @@ class TrackedLLMClient:
                 raw_cost = getattr(usage, "cost", None)
                 if raw_cost is not None:
                     actual_cost = float(raw_cost)
-        except TimeoutError as exc:
+        except (APITimeoutError, TimeoutError) as exc:
             status = "timeout"
             error_msg = str(exc)
+            logger.error("LLM timeout [%s]: %s", purpose, exc)
         except Exception as exc:
             status = "error"
             error_msg = str(exc)
+            logger.error("LLM error [%s]: %s", purpose, exc)
 
         finished_dt = datetime.now(timezone.utc)
         duration_ms = round((time.perf_counter() - t0) * 1000, 2)
@@ -117,7 +146,9 @@ class TrackedLLMClient:
 
     @staticmethod
     def parse_json_safe(raw: str) -> dict[str, Any]:
-        text = raw.strip()
-        if text.startswith("```"):
-            text = text.strip("`").lstrip("json").strip()
-        return json.loads(text)
+        cleaned = TrackedLLMClient.strip_thinking(raw)
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            cleaned = cleaned[start : end + 1]
+        return json.loads(cleaned)

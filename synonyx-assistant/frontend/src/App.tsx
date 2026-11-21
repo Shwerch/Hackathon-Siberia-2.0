@@ -17,8 +17,12 @@ export function App() {
 
   const startNew = async () => {
     setError(null);
-    const s = await createSession();
-    setSession(s);
+    try {
+      const s = await createSession();
+      setSession(s);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Бэкенд недоступен");
+    }
   };
 
   useEffect(() => {
@@ -90,7 +94,7 @@ export function App() {
           loading={loading}
           error={error}
           onSend={handleSend}
-          onRetry={() => lastPayload && handleSend(lastPayload.text, lastPayload.answers)}
+          onRetry={() => (lastPayload ? handleSend(lastPayload.text, lastPayload.answers) : startNew())}
         />
         <ResultTabs session={session} />
       </main>

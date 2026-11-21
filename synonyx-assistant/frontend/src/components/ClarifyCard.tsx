@@ -13,12 +13,17 @@ export const ClarifyCard: React.FC<Props> = ({ questions, disabled, onSubmit }) 
 
   if (questions.length === 0) return null;
 
+  const hasValidSelection = Object.entries(selected).some(([qid, val]) =>
+    val === "__other__" ? Boolean(otherText[qid]?.trim()) : Boolean(val)
+  );
+
   const handleSend = () => {
     const payload: Record<string, { choice?: string; other_text?: string }> = {};
     for (const q of questions) {
       const ch = selected[q.question_id];
       if (ch === "__other__") {
-        payload[q.question_id] = { choice: "другое", other_text: otherText[q.question_id] || "" };
+        const txt = (otherText[q.question_id] || "").trim();
+        if (txt) payload[q.question_id] = { choice: "другое", other_text: txt };
       } else if (ch) {
         payload[q.question_id] = { choice: ch };
       }
@@ -95,7 +100,7 @@ export const ClarifyCard: React.FC<Props> = ({ questions, disabled, onSubmit }) 
       ))}
       <button
         type="button"
-        disabled={disabled || Object.keys(selected).length === 0}
+        disabled={disabled || !hasValidSelection}
         onClick={handleSend}
         className="rounded-lg bg-teal-600 px-4 py-2 text-xs font-medium text-white hover:bg-teal-500 disabled:opacity-40"
       >

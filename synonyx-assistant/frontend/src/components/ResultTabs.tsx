@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { SessionState } from "../api/client";
 import { DiagramViewer } from "./DiagramViewer";
+import { MarkdownView } from "./MarkdownView";
 
 interface Props {
   session: SessionState | null;
@@ -104,8 +105,12 @@ export const ResultTabs: React.FC<Props> = ({ session }) => {
         )}
 
         {tab === "explanation" && (
-          <div className="p-4 space-y-4 text-sm text-slate-200 whitespace-pre-wrap">
-            <div>{session.last_explanation || "Пояснение появится после анализа запроса."}</div>
+          <div className="p-4 space-y-4">
+            {session.last_explanation ? (
+              <MarkdownView content={session.last_explanation} />
+            ) : (
+              <div className="text-sm text-slate-400">Пояснение появится после анализа запроса.</div>
+            )}
             {session.requests_for_vendor.length > 0 && (
               <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">
                 <div className="font-semibold mb-1">Пожелания для разработчика продукта:</div>

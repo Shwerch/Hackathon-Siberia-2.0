@@ -1,1 +1,7 @@
 llm/models/
+synonyx-assistant/frontend/node_modules/
+synonyx-assistant/backend/.venv
+synonyx-assistant/backend/app/__pycache__
+synonyx-assistant/backend/app/api/__pycache__
+__pycache__/
+*.py[cod]

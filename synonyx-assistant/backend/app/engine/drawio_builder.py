@@ -1,26 +1,21 @@
+import base64
 from html import escape
 from app.models.state import SessionState
 
 RULE_COLORS = ["#E06733", "#35C4AF", "#FFAB4D", "#B9C5CD", "#6FA8DC"]
 
-FIREWALL_SVG_B64 = (
-    "data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSIyODAiIHZpZXdCb3g9IjAgMCA0OCAyODAiPg=="
-)
-
 
 def _firewall_svg_data_uri(height: int) -> str:
-    # Компактный SVG стены с огоньком в стиле 06_template.drawio
     svg = (
-        f'<svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="48" height="{height}" viewBox="0 0 48 {height}">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="48" height="{height}" viewBox="0 0 48 {height}">'
         f'<rect x="1" y="1" width="46" height="{height-2}" rx="6" fill="#354552" stroke="#FFAB4D" stroke-width="2"/>'
         f'<line x1="2" y1="58" x2="46" y2="58" stroke="#FFAB4D" stroke-width="1.5"/>'
         f'<line x1="2" y1="90" x2="46" y2="90" stroke="#FFAB4D" stroke-width="1.5"/>'
         f'<line x1="2" y1="122" x2="46" y2="122" stroke="#FFAB4D" stroke-width="1.5"/>'
         f'<path transform="translate(24,30)" d="M0,-20 C7,-10 13,-4 13,5 C13,13 7,19 0,19 C-7,19 -13,13 -13,5 C-13,0 -10,-4 -7,-8 C-6,-4 -4,-2 -2,-2 C-4,-8 -3,-14 0,-20 Z" fill="#E06733"/>'
         f'<path transform="translate(24,35)" d="M0,-9 C4,-4 6,-1 6,3 C6,8 3,11 0,11 C-3,11 -6,8 -6,3 C-6,0 -3,-4 0,-9 Z" fill="#FFAB4D"/>'
-        '</svg>'
+        "</svg>"
     )
-    import base64
     return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
 
 
@@ -40,7 +35,7 @@ def build_drawio_xml(state: SessionState) -> str:
     cells: list[str] = [
         '<mxCell id="0"/>',
         '<mxCell id="1" parent="0"/>',
-        f'<mxCell id="t1" value="СХЕМА РАЗМЕЩЕНИЯ «СИНОНИКС»" style="text;html=1;align=left;verticalAlign=middle;fontColor=#FFFFFF;fontSize=20;fontStyle=1;fontFamily=Open Sans;" vertex="1" parent="1"><mxGeometry x="40" y="16" width="760" height="30" as="geometry"/></mxCell>',
+        '<mxCell id="t1" value="СХЕМА РАЗМЕЩЕНИЯ «СИНОНИКС»" style="text;html=1;align=left;verticalAlign=middle;fontColor=#FFFFFF;fontSize=20;fontStyle=1;fontFamily=Open Sans;" vertex="1" parent="1"><mxGeometry x="40" y="16" width="760" height="30" as="geometry"/></mxCell>',
         f'<mxCell id="t2" value="Правил Синоникса: {state.rules_count}" style="text;html=1;align=left;verticalAlign=middle;fontColor=#B9C5CD;fontSize=12;fontFamily=Open Sans;" vertex="1" parent="1"><mxGeometry x="40" y="46" width="900" height="20" as="geometry"/></mxCell>',
         f'<mxCell id="seg_open" value="&lt;b&gt;ОТКРЫТАЯ СЕТЬ&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-weight:normal;font-size:11px&quot;&gt;{open_name}&lt;/span&gt;" style="rounded=1;arcSize=5;dashed=1;dashPattern=8 6;fillColor=none;strokeColor=#E06733;strokeWidth=2;html=1;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontColor=#E06733;fontSize=12;fontFamily=Open Sans;" vertex="1" parent="1"><mxGeometry x="30" y="90" width="320" height="{seg_height}" as="geometry"/></mxCell>',
         f'<mxCell id="seg_closed" value="&lt;b&gt;ЗАКРЫТЫЙ СЕГМЕНТ&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-weight:normal;font-size:11px&quot;&gt;{closed_name}&lt;/span&gt;" style="rounded=1;arcSize=5;dashed=1;dashPattern=8 6;fillColor=none;strokeColor=#35C4AF;strokeWidth=2;html=1;align=left;verticalAlign=top;spacingLeft=14;spacingTop=6;fontColor=#35C4AF;fontSize=12;fontFamily=Open Sans;" vertex="1" parent="1"><mxGeometry x="584" y="90" width="836" height="{seg_height}" as="geometry"/></mxCell>',
@@ -84,7 +79,7 @@ def build_drawio_xml(state: SessionState) -> str:
             f'<mxCell id="usb_drive" value="USB-носитель" style="rounded=1;arcSize=30;fillColor=#354552;strokeColor=#B9C5CD;html=1;fontColor=#FFFFFF;fontSize=11;fontStyle=1;fontFamily=Open Sans;" vertex="1" parent="1"><mxGeometry x="633" y="{sx_y+145}" width="110" height="34" as="geometry"/></mxCell>'
         )
 
-    # Рёбра по правилам
+    total_rules = max(1, len(state.rules))
     for idx, rule in enumerate(state.rules):
         color = RULE_COLORS[idx % len(RULE_COLORS)]
         start_arrow = "block" if rule.mode == "two-way" else "none"
@@ -94,28 +89,40 @@ def build_drawio_xml(state: SessionState) -> str:
             else (rule.protocol if isinstance(rule.protocol, str) else "Файлы")
         )
         label = escape(f"{rule.id} · {proto_text}")
+        port_y = round(0.2 + 0.6 * (idx / max(1, total_rules - 1)), 2) if total_rules > 1 else 0.5
 
-        open_dev = (rule.source_devices[0] if rule.from_net == "open" else rule.target_device) or ""
-        closed_dev = (rule.target_device if rule.from_net == "open" else rule.source_devices[0]) or ""
-        o_cid = dev_cell_id.get(f"open:{open_dev}", "o_1")
-        c_cid = dev_cell_id.get(f"closed:{closed_dev}", "c_1")
+        open_names = rule.source_devices if rule.from_net == "open" else [rule.target_device or ""]
+        closed_names = [rule.target_device or ""] if rule.from_net == "open" else rule.source_devices
 
         if rule.uses_usb:
             cells.append(
                 f'<mxCell id="e_usb_{rule.id}" value="{label}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor={color};strokeWidth=2;endArrow=block;endFill=1;startArrow={start_arrow};startFill=1;labelBackgroundColor=#354552;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fontFamily=Open Sans;" edge="1" parent="1" source="usb_drive" target="node_left"><mxGeometry relative="1" as="geometry"/></mxCell>'
             )
         else:
-            src_left, tgt_left = (o_cid, "node_left") if rule.from_net == "open" else ("node_left", o_cid)
+            for s_i, o_name in enumerate(open_names):
+                o_cid = dev_cell_id.get(f"open:{o_name}", "o_1")
+                if rule.from_net == "open":
+                    src_l, tgt_l = o_cid, "node_left"
+                    anchor = f"exitX=1;exitY=0.5;entryX=0;entryY={port_y};"
+                else:
+                    src_l, tgt_l = "node_left", o_cid
+                    anchor = f"exitX=0;exitY={port_y};entryX=1;entryY=0.5;"
+                cells.append(
+                    f'<mxCell id="e_l_{rule.id}_{s_i}" value="{label if s_i == 0 else ""}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;{anchor}strokeColor={color};strokeWidth=2;endArrow=block;endFill=1;startArrow={start_arrow};startFill=1;labelBackgroundColor=#354552;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fontFamily=Open Sans;" edge="1" parent="1" source="{src_l}" target="{tgt_l}"><mxGeometry relative="1" as="geometry"/></mxCell>'
+                )
+
+        for c_i, c_name in enumerate(closed_names):
+            c_cid = dev_cell_id.get(f"closed:{c_name}", "c_1")
+            if rule.from_net == "open":
+                src_r, tgt_r = "node_right", c_cid
+                anchor = f"exitX=1;exitY={port_y};entryX=0;entryY=0.5;"
+            else:
+                src_r, tgt_r = c_cid, "node_right"
+                anchor = f"exitX=0;exitY=0.5;entryX=1;entryY={port_y};"
             cells.append(
-                f'<mxCell id="e_l_{rule.id}" value="{label}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor={color};strokeWidth=2;endArrow=block;endFill=1;startArrow={start_arrow};startFill=1;labelBackgroundColor=#354552;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fontFamily=Open Sans;" edge="1" parent="1" source="{src_left}" target="{tgt_left}"><mxGeometry relative="1" as="geometry"/></mxCell>'
+                f'<mxCell id="e_r_{rule.id}_{c_i}" value="{label if c_i == 0 else ""}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;{anchor}strokeColor={color};strokeWidth=2;endArrow=block;endFill=1;startArrow={start_arrow};startFill=1;labelBackgroundColor=#354552;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fontFamily=Open Sans;" edge="1" parent="1" source="{src_r}" target="{tgt_r}"><mxGeometry relative="1" as="geometry"/></mxCell>'
             )
 
-        src_right, tgt_right = ("node_right", c_cid) if rule.from_net == "open" else (c_cid, "node_right")
-        cells.append(
-            f'<mxCell id="e_r_{rule.id}" value="{label}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor={color};strokeWidth=2;endArrow=block;endFill=1;startArrow={start_arrow};startFill=1;labelBackgroundColor=#354552;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fontFamily=Open Sans;" edge="1" parent="1" source="{src_right}" target="{tgt_right}"><mxGeometry relative="1" as="geometry"/></mxCell>'
-        )
-
-    # Описание под схемой
     cells.append(
         f'<mxCell id="leg_title" value="Правил Синоникса: {state.rules_count}" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontColor=#FFFFFF;fontSize=13;fontStyle=1;fontFamily=Open Sans;" vertex="1" parent="1"><mxGeometry x="40" y="{legend_y}" width="1370" height="28" as="geometry"/></mxCell>'
     )
@@ -140,5 +147,5 @@ def build_drawio_xml(state: SessionState) -> str:
         '<diagram id="synonyx-scheme" name="Схема Синоникса">'
         f'<mxGraphModel dx="1450" dy="{total_height}" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1450" pageHeight="{total_height}" math="0" shadow="0" background="#303E48">'
         f'<root>{"".join(cells)}</root>'
-        '</mxGraphModel></diagram></mxfile>'
+        "</mxGraphModel></diagram></mxfile>"
     )

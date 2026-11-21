@@ -28,7 +28,6 @@ class FlowDraft(BaseModel):
     protocol: Optional[str] = None
     port: Optional[int] = None
     description: str = ""
-    # Параметры файлового обмена
     send_method: Optional[Literal["manual", "pull", "usb"]] = None
     send_protocol: Optional[Literal["SFTP", "FTP", "SMB", "USB"]] = None
     receive_method: Optional[Literal["manual", "push", "usb"]] = None
@@ -103,6 +102,7 @@ class SessionState(BaseModel):
     file_users_count: Optional[int] = 0
     file_users_range: Optional[dict[str, Optional[int]]] = None
     unknowns: list[str] = Field(default_factory=list)
+    dismissed_questions: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     requests_for_vendor: list[str] = Field(default_factory=list)
     sources: list[SourceRef] = Field(default_factory=list)
