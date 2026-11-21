@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ProjectResult, SessionStatus } from '../types/api';
 import { DrawioDiagramViewer } from './DrawioDiagramViewer';
+import { MarkdownView } from './MarkdownView';
 
 interface ResultPanelProps {
   status: SessionStatus;
@@ -192,7 +193,7 @@ export const ResultPanel: React.FC<ResultPanelProps> = ({
 
         {activeTab === 'explanation' && (
           <div className="explanation-tab">
-            <div className="explanation-text">{result.explanation}</div>
+            <MarkdownView content={result.explanation} />
 
             {result.requests_for_vendor.length > 0 && (
               <div className="vendor-box">

@@ -41,6 +41,32 @@ function parseStyle(styleStr: string): Record<string, string> {
   return result;
 }
 
+function findLabelPosition(pts: Array<{ x: number; y: number }>): { x: number; y: number } {
+  let bestHorizontal: { len: number; x: number; y: number } | null = null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (Math.abs(a.y - b.y) < 1) {
+      const len = Math.abs(b.x - a.x);
+      if (!bestHorizontal || len > bestHorizontal.len) {
+        bestHorizontal = { len, x: (a.x + b.x) / 2, y: a.y };
+      }
+    }
+  }
+  if (bestHorizontal && bestHorizontal.len >= 30) {
+    return { x: bestHorizontal.x, y: bestHorizontal.y };
+  }
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+  if (Math.abs(first.x - last.x) < 2 && first.y > last.y) {
+    return { x: first.x, y: first.y - 34 };
+  }
+  const midIdx = Math.floor(pts.length / 2);
+  const midA = pts[midIdx - 1];
+  const midB = pts[midIdx];
+  return { x: (midA.x + midB.x) / 2, y: (midA.y + midB.y) / 2 };
+}
+
 function parseDrawioXml(xml: string): {
   vertices: ParsedVertex[];
   edges: ParsedEdge[];
@@ -115,18 +141,17 @@ function parseDrawioXml(xml: string): {
       }
     }
 
-    // Resolve edge endpoints from connected vertices if points are omitted
     for (const e of edges) {
       if (!e.sourcePoint && e.source && vertexMap.has(e.source)) {
         const v = vertexMap.get(e.source)!;
-        const exitX = e.style.exitX ? parseFloat(e.style.exitX) : 0.5;
-        const exitY = e.style.exitY ? parseFloat(e.style.exitY) : 0.5;
+        const exitX = e.style.exitX !== undefined ? parseFloat(e.style.exitX) : 0.5;
+        const exitY = e.style.exitY !== undefined ? parseFloat(e.style.exitY) : 0.5;
         e.sourcePoint = { x: v.x + v.width * exitX, y: v.y + v.height * exitY };
       }
       if (!e.targetPoint && e.target && vertexMap.has(e.target)) {
         const v = vertexMap.get(e.target)!;
-        const entryX = e.style.entryX ? parseFloat(e.style.entryX) : 0.5;
-        const entryY = e.style.entryY ? parseFloat(e.style.entryY) : 0.5;
+        const entryX = e.style.entryX !== undefined ? parseFloat(e.style.entryX) : 0.5;
+        const entryY = e.style.entryY !== undefined ? parseFloat(e.style.entryY) : 0.5;
         e.targetPoint = { x: v.x + v.width * entryX, y: v.y + v.height * entryY };
       }
     }
@@ -149,7 +174,7 @@ function parseDrawioXml(xml: string): {
 
     for (const v of vertices) {
       minX = Math.min(minX, v.x);
-      minY = Math.min(minY, v.y);
+      minY = Math.min(minY, v.y - 24);
       maxX = Math.max(maxX, v.x + v.width);
       maxY = Math.max(maxY, v.y + v.height);
     }
@@ -188,6 +213,55 @@ function parseDrawioXml(xml: string): {
     };
   }
 }
+
+const FirewallIcon: React.FC<{ x: number; y: number; width: number; height: number }> = ({
+  x,
+  y,
+  width,
+  height
+}) => {
+  const sx = width / 48;
+  const sy = height / 166;
+  return (
+    <g transform={`translate(${x}, ${y}) scale(${sx}, ${sy})`}>
+      <rect
+        x="1"
+        y="1"
+        width="46"
+        height="164"
+        rx="6"
+        fill="#354552"
+        stroke="#FFAB4D"
+        strokeWidth="2"
+      />
+      <line x1="2" y1="58" x2="46" y2="58" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="24" y1="58" x2="24" y2="76" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="2" y1="76" x2="46" y2="76" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="12" y1="76" x2="12" y2="94" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="36" y1="76" x2="36" y2="94" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="2" y1="94" x2="46" y2="94" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="24" y1="94" x2="24" y2="112" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="2" y1="112" x2="46" y2="112" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="12" y1="112" x2="12" y2="130" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="36" y1="112" x2="36" y2="130" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="2" y1="130" x2="46" y2="130" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="24" y1="130" x2="24" y2="148" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="2" y1="148" x2="46" y2="148" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="12" y1="148" x2="12" y2="164" stroke="#FFAB4D" strokeWidth="1.5" />
+      <line x1="36" y1="148" x2="36" y2="164" stroke="#FFAB4D" strokeWidth="1.5" />
+      <path
+        transform="translate(24, 30)"
+        d="M0,-20 C7,-10 13,-4 13,5 C13,13 7,19 0,19 C-7,19 -13,13 -13,5 C-13,0 -10,-4 -7,-8 C-6,-4 -4,-2 -2,-2 C-4,-8 -3,-14 0,-20 Z"
+        fill="#E06733"
+      />
+      <path
+        transform="translate(24, 35)"
+        d="M0,-9 C4,-4 6,-1 6,3 C6,8 3,11 0,11 C-3,11 -6,8 -6,3 C-6,0 -3,-4 0,-9 Z"
+        fill="#FFAB4D"
+      />
+    </g>
+  );
+};
 
 export const DrawioDiagramViewer: React.FC<DrawioDiagramViewerProps> = ({ xml }) => {
   const [zoom, setZoom] = useState(1);
@@ -306,36 +380,50 @@ export const DrawioDiagramViewer: React.FC<DrawioDiagramViewerProps> = ({ xml })
           />
 
           {parsed.vertices.map((v) => {
-            const fill =
+            const rawFill =
               v.style.fillColor && v.style.fillColor !== 'none'
                 ? v.style.fillColor
                 : 'transparent';
-            const stroke =
+            const rawStroke =
               v.style.strokeColor && v.style.strokeColor !== 'none'
                 ? v.style.strokeColor
                 : 'none';
+
+            const normFill = rawFill.replace(/\s+/g, '').toUpperCase();
+            const isSynonyxBox =
+              v.style.synonyxBox === '1' ||
+              normFill === '#FFFFFF' ||
+              normFill === '#FFF' ||
+              normFill === 'WHITE';
+            const isSynonyxInnerTile = normFill === '#F2F4F6';
+
+            const fill = isSynonyxBox
+              ? '#253038'
+              : isSynonyxInnerTile
+                ? '#354552'
+                : rawFill;
+            const stroke = isSynonyxInnerTile ? '#5B707F' : rawStroke;
             const strokeWidth = parseFloat(v.style.strokeWidth || '1.5');
             const isDashed = v.style.dashed === '1';
             const isHex = v.style.shape === 'hexagon';
-            const isImage = v.style.shape === 'image' && v.style.image;
+            const isFirewallImage = v.style.shape === 'image';
+            const isTopLabel = v.style.verticalLabelPosition === 'top';
 
             const fontSize = parseFloat(v.style.fontSize || '12');
-            const fontColor = v.style.fontColor || '#FFFFFF';
+            const fontColor = isSynonyxInnerTile
+              ? '#FFFFFF'
+              : v.style.fontColor || '#FFFFFF';
             const align = v.style.align || 'center';
             const vAlign = v.style.verticalAlign || 'middle';
+            const padLeft = v.style.spacingLeft ? parseFloat(v.style.spacingLeft) : 2;
+            const padRight = v.style.spacingRight ? parseFloat(v.style.spacingRight) : 2;
+            const padTop = v.style.spacingTop ? parseFloat(v.style.spacingTop) : 2;
             const rx = v.style.rounded === '1' ? 8 : 0;
 
             return (
               <g key={v.id}>
-                {isImage ? (
-                  <image
-                    href={v.style.image}
-                    x={v.x}
-                    y={v.y}
-                    width={v.width}
-                    height={v.height}
-                    preserveAspectRatio="xMidYMid meet"
-                  />
+                {isFirewallImage ? (
+                  <FirewallIcon x={v.x} y={v.y} width={v.width} height={v.height} />
                 ) : isHex ? (
                   <polygon
                     points={`${v.x + 12},${v.y} ${v.x + v.width - 12},${v.y} ${
@@ -365,10 +453,10 @@ export const DrawioDiagramViewer: React.FC<DrawioDiagramViewerProps> = ({ xml })
 
                 {v.value && (
                   <foreignObject
-                    x={v.x + 6}
-                    y={isImage ? v.y - 20 : v.y + 4}
-                    width={Math.max(20, v.width - 12)}
-                    height={isImage ? 20 : Math.max(20, v.height - 8)}
+                    x={v.x + (isTopLabel ? 0 : padLeft)}
+                    y={isTopLabel ? v.y - 24 : v.y + padTop}
+                    width={Math.max(20, v.width - (isTopLabel ? 0 : padLeft + padRight))}
+                    height={isTopLabel ? 22 : Math.max(20, v.height - padTop - 2)}
                     style={{ pointerEvents: 'none' }}
                   >
                     <div
@@ -420,11 +508,8 @@ export const DrawioDiagramViewer: React.FC<DrawioDiagramViewerProps> = ({ xml })
             const hasStart = e.style.startArrow && e.style.startArrow !== 'none';
             const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 
-            const midIdx = Math.floor(pts.length / 2);
-            const midA = pts[midIdx - 1];
-            const midB = pts[midIdx];
-            const labelX = (midA.x + midB.x) / 2;
-            const labelY = (midA.y + midB.y) / 2;
+            const labelPos = findLabelPosition(pts);
+            const pillW = e.value ? Math.max(92, e.value.length * 6.4 + 20) : 0;
 
             return (
               <g key={e.id}>
@@ -437,11 +522,11 @@ export const DrawioDiagramViewer: React.FC<DrawioDiagramViewerProps> = ({ xml })
                   markerStart={hasStart ? `url(#${arrowId})` : undefined}
                 />
                 {e.value && (
-                  <g transform={`translate(${labelX}, ${labelY})`}>
+                  <g transform={`translate(${labelPos.x}, ${labelPos.y})`}>
                     <rect
-                      x={-54}
+                      x={-pillW / 2}
                       y={-11}
-                      width={108}
+                      width={pillW}
                       height={22}
                       rx={11}
                       fill="#354552"
@@ -450,7 +535,7 @@ export const DrawioDiagramViewer: React.FC<DrawioDiagramViewerProps> = ({ xml })
                     />
                     <text
                       x={0}
-                      y={4}
+                      y={3.5}
                       textAnchor="middle"
                       fill="#FFFFFF"
                       fontSize="10"

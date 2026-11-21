@@ -4,6 +4,7 @@ import {
   ClarificationQuestion,
   QuestionAnswerPayload
 } from '../types/api';
+import { MarkdownView } from './MarkdownView';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -210,11 +211,32 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   onRetry
 }) => {
   const [input, setInput] = useState('');
+  const [inputHeight, setInputHeight] = useState(68);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  const handleResizeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = inputHeight;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const delta = startY - ev.clientY;
+      const next = Math.min(340, Math.max(54, startHeight + delta));
+      setInputHeight(next);
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,7 +272,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               <div className="chat-role">
                 {msg.role === 'user' ? 'Вы' : 'Ассистент «Синоникс»'}
               </div>
-              <div className="chat-text">{msg.text}</div>
+              {msg.role === 'assistant' ? (
+                <MarkdownView content={msg.text} />
+              ) : (
+                <div className="chat-text">{msg.text}</div>
+              )}
 
               {msg.sources && msg.sources.length > 0 && (
                 <div className="chat-sources">
@@ -300,10 +326,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         <div ref={bottomRef} />
       </div>
 
+      <div
+        className="chat-resize-handle"
+        onMouseDown={handleResizeMouseDown}
+        title="Потяните вверх или вниз, чтобы изменить размер поля ввода"
+      >
+        <span className="chat-resize-grip" />
+      </div>
+
       <form className="chat-input-form" onSubmit={handleSubmit}>
         <textarea
-          className="chat-textarea"
-          rows={2}
+          className="chat-textarea chat-textarea-fixed"
+          style={{ height: `${inputHeight}px` }}
           placeholder="Задайте вопрос по схеме, уточните параметры или попросите внести изменения..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
