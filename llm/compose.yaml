@@ -1,6 +1,6 @@
 services:
   llama-server:
-    container_name: gemma4-llama-server
+    container_name: llama-server
     build:
       context: .
       dockerfile: Dockerfile
