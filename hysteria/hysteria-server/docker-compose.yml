@@ -1,0 +1,29 @@
+services:
+  hysteria-server:
+    image: tobyxdd/hysteria:latest
+    container_name: hysteria-server
+    restart: always
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - ./server.template.yaml:/etc/hysteria/server.template.yaml:ro
+      - ./server.crt:/etc/hysteria/server.crt:ro
+      - ./server.key:/etc/hysteria/server.key:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sed -e "s|__HY_AUTH_PASS__|$$HY_AUTH_PASS|g" \
+            -e "s|__HY_OBFS_PASS__|$$HY_OBFS_PASS|g" \
+            /etc/hysteria/server.template.yaml > /tmp/server.yaml && \
+        exec hysteria server -c /tmp/server.yaml
+
+networks:
+  hy_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-hysteria
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+          gateway: 172.28.0.1

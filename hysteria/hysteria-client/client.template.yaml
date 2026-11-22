@@ -1,0 +1,36 @@
+server: __IP_AND_PORT__
+auth: "__HY_AUTH_PASS__"
+
+tls:
+  sni: debian.org
+  pinSHA256: "08:FA:90:48:22:1E:EF:92:A5:A0:B1:61:26:38:FA:41:FB:08:8F:23:02:A8:B6:90:5A:F4:E9:43:68:67:C9:C2"
+  insecure: true
+
+obfs:
+  type: salamander
+  salamander:
+    password: "__HY_OBFS_PASS__"
+
+congestion:
+  type: bbr
+  bbrProfile: standard
+
+quic:
+  keepAlivePeriod: 15s
+  maxIdleTimeout: 60s
+
+fastOpen: true
+lazy: false
+
+socks5:
+  listen: 0.0.0.0:1080
+  disableUDP: true
+
+http:
+  listen: 0.0.0.0:1080
+
+tcpForwarding:
+  - listen: 0.0.0.0:2222
+    remote: 127.0.0.1:22
+  - listen: 0.0.0.0:8080
+    remote: 127.0.0.1:8080

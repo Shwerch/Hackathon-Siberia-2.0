@@ -1,0 +1,25 @@
+listen: :50077
+
+tls:
+  cert: /etc/hysteria/server.crt
+  key: /etc/hysteria/server.key
+
+auth:
+  type: password
+  password: "__HY_AUTH_PASS__"
+
+obfs:
+  type: salamander
+  salamander:
+    password: "__HY_OBFS_PASS__"
+
+ignoreClientBandwidth: true
+speedTest: true
+
+quic:
+  maxIdleTimeout: 60s
+  maxIncomingStreams: 1024
+
+outbounds:
+  - name: direct
+    type: direct

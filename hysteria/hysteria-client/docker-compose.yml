@@ -1,0 +1,21 @@
+services:
+  hysteria-client:
+    image: tobyxdd/hysteria:latest
+    container_name: hysteria-client
+    restart: always
+    ports:
+      - "127.0.0.1:1080:1080/tcp"
+      - "127.0.0.1:2222:2222/tcp"
+      - "127.0.0.1:8080:8080/tcp"
+    env_file:
+      - .env
+    volumes:
+      - ./client.template.yaml:/etc/hysteria/client.template.yaml:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sed -e "s|__HY_AUTH_PASS__|$$HY_AUTH_PASS|g" \
+            -e "s|__HY_OBFS_PASS__|$$HY_OBFS_PASS|g" \
+            -e "s|__IP_AND_PORT__|$$IP_AND_PORT|g" \
+            /etc/hysteria/client.template.yaml > /tmp/client.yaml && \
+        exec hysteria client -c /tmp/client.yaml
